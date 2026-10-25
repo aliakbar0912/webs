@@ -1,0 +1,42 @@
+// Devora website database.
+//
+// NOTE: There is deliberately NO user/account model here. Devora accounts live
+// in the existing upstream account system; this website never creates a second
+// user database (see INTEGRATION.md). These tables store operational data only.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// Support-form submissions. Messages are always stored locally; delivery to
+/// the configured destination (SUPPORT_WEBHOOK_URL) is recorded honestly.
+model SupportMessage {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String
+  subject   String
+  category  String
+  message   String
+  /// "stored" = recorded locally only; "delivered" = also forwarded to the configured destination.
+  status    String   @default("stored")
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// Idempotency ledger for Paddle webhook events. Each upstream event id is
+/// processed at most once, even across retries.
+model PaddleWebhookEvent {
+  id         String   @id @default(cuid())
+  /// Paddle event id (unique per event).
+  eventId    String   @unique
+  eventType  String
+  /// Raw JSON payload, kept for audit and replay diagnostics.
+  payload    String
+  occurredAt DateTime @default(now())
+}
